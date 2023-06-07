@@ -7,6 +7,7 @@ from .base import (  # noqa: F401
     topo_sort_vars,
 )
 from .basic import (  # noqa: F401
+    ClosureVariable,
     ConstantVariable,
     DummyVariable,
     DygraphTracerVariable,

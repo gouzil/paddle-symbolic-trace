@@ -39,6 +39,7 @@ from .tracker import (
 )
 from .variables import (
     CallableVariable,
+    ClosureVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
@@ -431,6 +432,9 @@ class OpcodeExecutorBase:
     def LOAD_CONST(self, instr):
         var = self._co_consts[instr.arg]
         self.push(var)
+
+    def LOAD_CLOSURE(self, instr):
+        self.push(ClosureVariable(instr.argval))
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
