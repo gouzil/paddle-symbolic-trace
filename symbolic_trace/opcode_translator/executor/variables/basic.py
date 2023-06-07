@@ -282,3 +282,6 @@ class ClosureVariable(VariableBase):
     def __init__(self, name):
         super().__init__(None)
         self.name = name
+
+    def reconstruct(self, codegen: PyCodeGen):
+        return [codegen.gen_load_closure(self.name)]

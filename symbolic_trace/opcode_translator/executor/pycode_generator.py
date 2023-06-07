@@ -302,6 +302,12 @@ class PyCodeGen:
 
         return self._gen_fn(inputs), inputs
 
+    def gen_load_closure(self, name):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("LOAD_CLOSURE", arg=idx, argval=name)
+
     def gen_load_const(self, value):
         # Python `list.index` will find an item equal to query, i.e. `query == item`
         # returns a value of True. Since `1 == True`, this will result in an incorrect
