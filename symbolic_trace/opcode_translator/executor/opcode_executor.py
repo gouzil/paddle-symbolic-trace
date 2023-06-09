@@ -37,9 +37,8 @@ from .tracker import (
     GlobalTracker,
     LocalTracker,
 )
-from .variables import (
+from .variables import (  # ClosureVariable,
     CallableVariable,
-    ClosureVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
@@ -441,7 +440,19 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_CLOSURE(self, instr):
-        self.push(ClosureVariable(instr.argval))
+        # self.push(ClosureVariable(instr.argval))
+        # self.push(TupleVariable(instr.argval, graph=self._graph, tracker=DummyTracker(instr.argval)))
+        # self.push(TupleVariable(self._code.co_cellvars[instr.arg], graph=self._graph, tracker=DummyTracker(instr.argval)))
+        # print(instr.arg)
+        # self.push(self._code.co_cellvars[instr.arg])
+        # print(self._code.co_cellvars[instr.arg])
+        # self.push(instr.arg)
+        # self.push(tuple(instr.argval))
+        f_localsplus = PyCodeGen
+        freevars = f_localsplus + self._code.co_nlocals
+        print(freevars)
+        # self.push()
+        pass
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -771,6 +782,14 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
+        print(codeobj.value)
+        print(global_dict)
+        print(fn_name.value)
+        print(default_args)
+        print(closure)
+        print(type(closure))
+        print(flag)
+        print(related_list)
         new_fn = types.FunctionType(
             codeobj.value, global_dict, fn_name.value, default_args, closure
         )

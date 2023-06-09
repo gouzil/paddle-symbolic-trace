@@ -5,16 +5,16 @@ from test_case_base import TestCaseBase
 import paddle
 
 
-def foo(x: int, y: paddle.Tensor):
+def foo(y: paddle.Tensor):
     def local(z):
-        return x + y + z
+        return y + z
 
     return local(1)
 
 
 class TestExecutor(TestCaseBase):
     def test_simple(self):
-        self.assert_results(foo, 1, paddle.to_tensor(2))
+        self.assert_results(foo, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
