@@ -239,6 +239,7 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
+        self._f_localsplus = []
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
@@ -407,16 +408,24 @@ class OpcodeExecutorBase:
         # self.push(ClosureVariable(instr.argval))
         # self.push(TupleVariable(instr.argval, graph=self._graph, tracker=DummyTracker(instr.argval)))
         # self.push(TupleVariable(self._code.co_cellvars[instr.arg], graph=self._graph, tracker=DummyTracker(instr.argval)))
-        # print(instr.arg)
+        print(instr.arg)   
+        print(instr.argval)
         # self.push(self._code.co_cellvars[instr.arg])
         # print(self._code.co_cellvars[instr.arg])
         # self.push(instr.arg)
         # self.push(tuple(instr.argval))
-        f_localsplus = PyCodeGen
-        freevars = f_localsplus + self._code.co_nlocals
-        print(freevars)
+        # f_localsplus = PyCodeGen
+        # freevars = f_localsplus + self._code.co_nlocals
+        # print(freevars)
         # self.push()
-        pass
+        if instr.arg < len(self._code.co_cellvars):
+            self.push(self._code.co_cellvars[instr.arg])
+            self._f_localsplus.append(self._code.co_cellvars[instr.arg])
+        else:
+            self.push(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
+            self._f_localsplus.append(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
+        # breakpoint()
+        # pass
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -453,6 +462,13 @@ class OpcodeExecutorBase:
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
+
+    def STORE_DEREF(self, instr):
+        print(instr.arg)
+        print(instr.argval)
+        self._locals[instr.argval] = self.pop()
+        breakpoint()
+        # pass
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -754,6 +770,7 @@ class OpcodeExecutorBase:
         print(type(closure))
         print(flag)
         print(related_list)
+        breakpoint()
         new_fn = types.FunctionType(
             codeobj.value, global_dict, fn_name.value, default_args, closure
         )
