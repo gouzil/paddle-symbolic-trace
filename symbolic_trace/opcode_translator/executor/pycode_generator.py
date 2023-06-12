@@ -15,15 +15,16 @@ from ...utils import (
     ResumeFnNameFactory,
     list_contain_by_id,
     list_find_index_by_id,
+    no_eval_frame,
 )
 from ..instruction_utils import (
+    analysis_inputs,
     gen_instr,
     get_instructions,
     instrs_info,
     modify_instrs,
     modify_vars,
 )
-from ..instruction_utils.opcode_analysis import analysis_inputs
 
 if TYPE_CHECKING:
     from ..instruction_utils import Instruction
@@ -234,9 +235,11 @@ class PyCodeGen:
         if self._instructions[index].opname == 'RETURN_VALUE':
             return None, set()
         inputs = analysis_inputs(self._instructions, index)
+        fn_name = ResumeFnNameFactory().next()
+        stack_arg_str = fn_name + '_stack_{}'
         self._instructions = (
             [
-                gen_instr('LOAD_FAST', argval=f'__stack_arg{i}')
+                gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
                 for i in range(stack_size)
             ]
             + [gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])]
@@ -246,7 +249,7 @@ class PyCodeGen:
         self._code_options['co_argcount'] = len(inputs) + stack_size
         # inputs should be at the front of the co_varnames
         self._code_options['co_varnames'] = tuple(
-            [f'__stack_arg{i}' for i in range(stack_size)]
+            [stack_arg_str.format(i) for i in range(stack_size)]
             + list(inputs)
             + [
                 var_name
@@ -254,7 +257,6 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
-        fn_name = ResumeFnNameFactory().next()
         self._code_options['co_name'] = fn_name
 
         new_code = self.gen_pycode()
@@ -433,6 +435,27 @@ class PyCodeGen:
 
     def gen_pop_top(self):
         self._add_instr("POP_TOP")
+
+    def gen_rot_n(self, n):
+        if n <= 1:
+            return
+        if n <= 4:
+            self._add_instr("ROT_" + ["TWO", "THREE", "FOUR"][n - 2])
+        else:
+
+            def rot_n_fn(n):
+                vars = [f"var{i}" for i in range(n)]
+                rotated = reversed(vars[-1:] + vars[:-1])
+                fn = eval(f"lambda {','.join(vars)}: ({','.join(rotated)})")
+                fn = no_eval_frame(fn)
+                fn.__name__ = f"rot_{n}_fn"
+                return fn
+
+            self.gen_build_tuple(n)
+            self.gen_load_const(rot_n_fn(n))
+            self.gen_rot_n(2)
+            self._add_instr("CALL_FUNCTION_EX", arg=0)
+            self.gen_unpack_sequence(n)
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")

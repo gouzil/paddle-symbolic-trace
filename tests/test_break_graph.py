@@ -65,5 +65,34 @@ class TestToTensor(TestCaseBase):
         self.assert_results(to_tensor_break_graph, x, y)
 
 
+def tensor_numpy(x):
+    x = paddle.to_tensor(x)
+    x.clear_gradient()
+    return x
+
+
+class TestBreakGraphInResumeFn(TestCaseBase):
+    def test_simple(self):
+        x = paddle.to_tensor(2)
+        self.assert_results(tensor_numpy, x)
+
+
+def inner_fn(a, b, c, d):
+    return a + b * c - d
+
+
+def multi_stack_args(a, b, c):
+    out = inner_fn(a, b, c, paddle.to_tensor(4))
+    return out
+
+
+class TestMultiStackArgs(TestCaseBase):
+    def test_simple(self):
+        a = paddle.to_tensor(1)
+        b = paddle.to_tensor(2)
+        c = paddle.to_tensor(3)
+        self.assert_results(multi_stack_args, a, b, c)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -17,12 +17,12 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import (
+from ..instruction_utils import (
     Instruction,
+    analysis_inputs,
     get_instructions,
     instrs_info,
 )
-from ..instruction_utils.opcode_analysis import analysis_inputs
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -168,7 +168,7 @@ def start_translate(frame) -> GuardedFunction | None:
             raise
         log(
             2,
-            f"Unsupport Frame is {frame.f_code}, error message is: {str(e)}\n",
+            f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
         return None
     except Exception as e:
@@ -185,24 +185,24 @@ def tos_op_wrapper(fn):
     return inner
 
 
-def breakoff_graph_with_jump(normal_jump):
+def jump_break_graph_decorator(normal_jump):
     """breakoff graph when meet jump."""
 
-    def jump_instruction_with_fallback(self: OpcodeExecutor, instr):
+    def inner(self: OpcodeExecutor, instr):
         result = self.peek()
         if isinstance(result, TensorVariable):
             self.pop()
             # fallback when in OpcodeExecutor
             # raise error in OpcodeInlineExecutor
-            self._fallback_in_jump(result, instr)
+            self._break_graph_in_jump(result, instr)
             return Stop()
         else:
             return normal_jump(self, instr)
 
-    return jump_instruction_with_fallback
+    return inner
 
 
-def break_graph_in_call(push_n):
+def call_break_graph_decorator(push_n):
     def decorate(call_fn):
         @functools.wraps(call_fn)
         def wrapper(self: OpcodeExecutor, instr):
@@ -210,61 +210,25 @@ def break_graph_in_call(push_n):
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
-                index = self.indexof(instr)
-                self._stack = origin_stack
-
-                # gen call static fn opcode
-                ret_vars = [
-                    arg
-                    for arg in self._stack
-                    if isinstance(arg, TensorVariable)
-                ]
-                resume_input_name = analysis_inputs(
-                    self._instructions, index + 1
-                )
-                ret_vars = ret_vars + [
-                    self.get_var(name)
-                    for name in resume_input_name
-                    if self.get_var(name) not in ret_vars
-                ]
-                self._graph.start_compile(*ret_vars)
-                for _ in ret_vars:
-                    self._graph.pycode_gen.gen_pop_top()
-
-                # gen graph break call fn opcode
-                for stack_arg in self._stack:
-                    stack_arg.reconstruct(self._graph.pycode_gen)
-                self._graph.pycode_gen.add_pure_instructions([instr])
-
-                # gen call resume fn opcode
-                stack_effect = dis.stack_effect(instr.opcode, instr.arg)
-                self.pop_n(push_n - stack_effect)
-                stack_size = len(self._stack) + push_n
-                self._graph.pycode_gen.gen_build_tuple(stack_size)
-                resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
-                if resume_fn:
-                    self._graph.pycode_gen.gen_load_object(
-                        resume_fn, resume_fn.__code__.co_name
-                    )
-                    self._graph.pycode_gen._add_instr('ROT_TWO')
-                    self._graph.pycode_gen.gen_unpack_sequence(stack_size)
-                    for name in resume_input_name:
-                        self._locals[name].reconstruct(self._graph.pycode_gen)
-                    self._graph.pycode_gen.gen_call_function(
-                        argc=resume_fn.__code__.co_argcount
-                    )
-
-                # gen RETURN_VALUE
-                self._graph.pycode_gen.gen_return()
-
-                self.new_code = self._graph.pycode_gen.gen_pycode()
-                self.guard_fn = self._graph.guard_fn
-
+                log(3, f"[BreakGraph] call function Break graph: {e}\n")
+                self._break_graph_in_call(origin_stack, instr, push_n)
                 return Stop()
 
         return wrapper
 
     return decorate
+
+
+def fallback_when_occur_error(fn):
+    def inner(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            raise NotImplementException(
+                f'An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
+            )
+
+    return inner
 
 
 class OpcodeExecutorBase:
@@ -293,7 +257,7 @@ class OpcodeExecutorBase:
     def _prepare_virtual_env(self):
         raise NotImplementedError("Please inplement virtual_env.")
 
-    def _fallback_in_jump(self, result, instr):
+    def _break_graph_in_jump(self, result, instr):
         raise NotImplementedError()
 
     def transform(self):
@@ -824,6 +788,7 @@ class OpcodeExecutorBase:
                 )
             )
         else:
+            # TODO: source obj ? why not source_obj.__iter__()
             self.push(
                 UserDefinedIterVariable(
                     source_obj, self._graph, GetIterTracker(source_obj)
@@ -848,7 +813,7 @@ class OpcodeExecutorBase:
         # TODO need support TensorIterVariable.next
 
         else:
-            self._fallback_in_for_loop(iterator, instr)
+            self._break_graph_in_for_loop(iterator, instr)
             return Stop()
 
     def JUMP_FORWARD(self, instr):
@@ -857,7 +822,7 @@ class OpcodeExecutorBase:
     def JUMP_ABSOLUTE(self, instr):
         self._lasti = self.indexof(instr.jump_to)
 
-    @breakoff_graph_with_jump
+    @jump_break_graph_decorator
     def JUMP_IF_FALSE_OR_POP(self, instr):
         pred_obj = self.peek()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
@@ -872,7 +837,7 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
-    @breakoff_graph_with_jump
+    @jump_break_graph_decorator
     def JUMP_IF_TRUE_OR_POP(self, instr):
         pred_obj = self.peek()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
@@ -887,7 +852,7 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
-    @breakoff_graph_with_jump
+    @jump_break_graph_decorator
     def POP_JUMP_IF_FALSE(self, instr):
         pred_obj = self.pop()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
@@ -900,7 +865,7 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
-    @breakoff_graph_with_jump
+    @jump_break_graph_decorator
     def POP_JUMP_IF_TRUE(self, instr):
         pred_obj = self.pop()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
@@ -1066,7 +1031,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
         return fn, inputs
 
-    def _fallback_in_jump(self, result, instr):
+    @fallback_when_occur_error
+    def _break_graph_in_jump(self, result, instr):
         self._graph.add_global_guarded_variable(result)
         stack_size = len(self._stack)
         if_fn, if_inputs = self._create_resume_fn(
@@ -1134,13 +1100,60 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
+    @fallback_when_occur_error
+    def _break_graph_in_call(self, origin_stack, instr, push_n):
+        index = self.indexof(instr)
+        self._stack = origin_stack
+
+        # gen call static fn opcode
+        ret_vars = [
+            arg for arg in self._stack if isinstance(arg, TensorVariable)
+        ]
+        resume_input_name = analysis_inputs(self._instructions, index + 1)
+        ret_vars = ret_vars + [
+            self.get_var(name)
+            for name in resume_input_name
+            if self.get_var(name) not in ret_vars
+        ]
+        self._graph.start_compile(*ret_vars)
+        for _ in ret_vars:
+            self._graph.pycode_gen.gen_pop_top()
+
+        # gen graph break call fn opcode
+        for stack_arg in self._stack:
+            stack_arg.reconstruct(self._graph.pycode_gen)
+        self._graph.pycode_gen.add_pure_instructions([instr])
+
+        # gen call resume fn opcode
+        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+        self.pop_n(push_n - stack_effect)
+        stack_size = len(self._stack) + push_n
+        resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
+        if resume_fn:
+            self._graph.pycode_gen.gen_load_object(
+                resume_fn, resume_fn.__code__.co_name
+            )
+            self._graph.pycode_gen.gen_rot_n(stack_size + 1)
+            for name in resume_input_name:
+                self._locals[name].reconstruct(self._graph.pycode_gen)
+            self._graph.pycode_gen.gen_call_function(
+                argc=resume_fn.__code__.co_argcount
+            )
+
+        # gen RETURN_VALUE
+        self._graph.pycode_gen.gen_return()
+
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
+
     def transform(self):
         self.run()
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
 
-    def _fallback_in_for_loop(self, iterator, for_iter):
+    @fallback_when_occur_error
+    def _break_graph_in_for_loop(self, iterator, for_iter):
         '''
         for_iter: the FOR_ITER opcode
 
@@ -1295,13 +1308,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
         except BreakGraphError:
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
-            self._fallback_in_for_loop(iterator, instr)
+            self._break_graph_in_for_loop(iterator, instr)
             return Stop()
 
-    @break_graph_in_call(push_n=1)
+    @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr):
         super().CALL_FUNCTION(instr)
 
-    @break_graph_in_call(push_n=1)
+    @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
         super().CALL_METHOD(instr)
