@@ -42,6 +42,7 @@ from .variables import (  # ClosureVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
+    ClosureVariable,
     DictVariable,
     DummyVariable,
     IterVariable,
@@ -239,7 +240,8 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
-        self._f_localsplus = []
+        # self._closure = []
+        # self._f_localsplus = []
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
@@ -420,10 +422,13 @@ class OpcodeExecutorBase:
         # self.push()
         if instr.arg < len(self._code.co_cellvars):
             self.push(self._code.co_cellvars[instr.arg])
-            self._f_localsplus.append(self._code.co_cellvars[instr.arg])
+            # self._f_localsplus.append(self._code.co_cellvars[instr.arg])
+            # self._closure[instr.arg] = self._code.co_cellvars[instr.arg]
         else:
             self.push(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
-            self._f_localsplus.append(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
+            # self._f_localsplus.append(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
+            # self._closure[instr.arg] = self._code.co_freevars[instr.arg - len(self._code.co_cellvars)]
+
         # breakpoint()
         # pass
 
@@ -722,6 +727,7 @@ class OpcodeExecutorBase:
             self.push(SUPPORT_COMPARE_OP["is not"](left, right))
 
     def MAKE_FUNCTION(self, instr):
+        breakpoint()
         fn_name = self.pop()
         codeobj = self.pop()
         global_dict = self._globals
@@ -729,15 +735,6 @@ class OpcodeExecutorBase:
         related_list = [fn_name, codeobj]
 
         flag = instr.arg
-        if flag & MF.MF_HAS_CLOSURE:
-            # closure should be a tuple of Variables
-            closure_variable = self.pop()
-            assert isinstance(closure_variable, TupleVariable)
-            related_list.append(closure_variable)
-            closure = tuple(closure_variable.get_wrapped_items())
-        else:
-            closure = ()
-
         if flag & MF.MF_HAS_ANNOTATION:
             # can not set annotation in python env, skip it
             related_list.append(self.pop())
@@ -762,18 +759,18 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
-        print(codeobj.value)
-        print(global_dict)
-        print(fn_name.value)
-        print(default_args)
-        print(closure)
-        print(type(closure))
-        print(flag)
-        print(related_list)
         breakpoint()
-        new_fn = types.FunctionType(
-            codeobj.value, global_dict, fn_name.value, default_args, closure
-        )
+        if flag & MF.MF_HAS_CLOSURE:
+            # closure should be a tuple of Variables
+            closure_variable = self.pop()
+            new_fn = ClosureFunctionVariable(
+                codeobj.value, global_dict, fn_name.value, default_args, closure_variable 
+            )
+        else:
+            closure = ()
+            new_fn = types.FunctionType(
+                codeobj.value, global_dict, fn_name.value, default_args, closure
+            )
 
         self.push(
             UserDefinedFunctionVariable(
@@ -1327,6 +1324,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 iterator.idx = backup_iter_idx
             self._break_graph_in_for_loop(iterator, instr)
             return Stop()
+
+    # def LOAD_CLOSURE(self, instr):
+        # self._frame.
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr):
