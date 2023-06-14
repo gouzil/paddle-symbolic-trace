@@ -359,8 +359,8 @@ class DummyVariable(VariableBase):
 
 class ClosureVariable(VariableBase):
     def __init__(self, name):
-        super().__init__(None)
+        super().__init__(DummyTracker([]))
         self.name = name
 
-    def reconstruct(self, codegen: PyCodeGen):
-        return [codegen.gen_load_closure(self.name)]
+    def get_name(self):
+        return self.name

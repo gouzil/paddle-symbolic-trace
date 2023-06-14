@@ -43,6 +43,7 @@ from .variables import (  # ClosureVariable,
     ContainerVariable,
     DictIterVariable,
     ClosureVariable,
+    ClosureFunctionVariable,
     DictVariable,
     DummyVariable,
     IterVariable,
@@ -251,7 +252,7 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
-        # self._closure = []
+        self._closure = {}
         # self._f_localsplus = []
         self._lasti = 0  # idx of instruction list
         self._code = code
@@ -423,10 +424,11 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_CLOSURE(self, instr):
-        # self.push(ClosureVariable(instr.argval))
+        breakpoint()
+        self.push(ClosureVariable(instr.argval))
         # self.push(TupleVariable(instr.argval, graph=self._graph, tracker=DummyTracker(instr.argval)))
         # self.push(TupleVariable(self._code.co_cellvars[instr.arg], graph=self._graph, tracker=DummyTracker(instr.argval)))
-        print(instr.arg)   
+        print(instr.arg)
         print(instr.argval)
         # self.push(self._code.co_cellvars[instr.arg])
         # print(self._code.co_cellvars[instr.arg])
@@ -436,16 +438,15 @@ class OpcodeExecutorBase:
         # freevars = f_localsplus + self._code.co_nlocals
         # print(freevars)
         # self.push()
-        if instr.arg < len(self._code.co_cellvars):
-            self.push(self._code.co_cellvars[instr.arg])
+        # if instr.arg < len(self._code.co_cellvars):
+            # self.push(self._code.co_cellvars[instr.arg])
             # self._f_localsplus.append(self._code.co_cellvars[instr.arg])
             # self._closure[instr.arg] = self._code.co_cellvars[instr.arg]
-        else:
-            self.push(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
+        # else:
+            # self.push(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
             # self._f_localsplus.append(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
             # self._closure[instr.arg] = self._code.co_freevars[instr.arg - len(self._code.co_cellvars)]
 
-        # breakpoint()
         # pass
 
     def LOAD_FAST(self, instr):
@@ -492,10 +493,10 @@ class OpcodeExecutorBase:
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def STORE_DEREF(self, instr):
-        print(instr.arg)
-        print(instr.argval)
-        self._locals[instr.argval] = self.pop()
-        breakpoint()
+        # print(instr.arg)
+        # print(instr.argval)
+        self._closure[instr.argval] = self.pop()
+        # breakpoint()
         # pass
 
     def BUILD_LIST(self, instr):
@@ -789,8 +790,9 @@ class OpcodeExecutorBase:
         if flag & MF.MF_HAS_CLOSURE:
             # closure should be a tuple of Variables
             closure_variable = self.pop()
+            assert isinstance(closure_variable, TupleVariable)
             new_fn = ClosureFunctionVariable(
-                codeobj.value, global_dict, fn_name.value, default_args, closure_variable 
+                codeobj.value, global_dict, fn_name.value, default_args, closure_variable, DummyTracker(closure_variable.get_wrapped_items())
             )
         else:
             closure = ()
