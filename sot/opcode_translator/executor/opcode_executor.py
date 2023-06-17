@@ -422,9 +422,10 @@ class OpcodeExecutorBase:
     def LOAD_CONST(self, instr):
         var = self._co_consts[instr.arg]
         self.push(var)
+        # breakpoint()
 
     def LOAD_CLOSURE(self, instr):
-        breakpoint()
+        # breakpoint()
         self.push(ClosureVariable(instr.argval))
         # self.push(TupleVariable(instr.argval, graph=self._graph, tracker=DummyTracker(instr.argval)))
         # self.push(TupleVariable(self._code.co_cellvars[instr.arg], graph=self._graph, tracker=DummyTracker(instr.argval)))
@@ -660,6 +661,7 @@ class OpcodeExecutorBase:
         )
 
     def CALL_FUNCTION(self, instr):
+        # breakpoint() 
         n_args = instr.arg
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
@@ -754,7 +756,6 @@ class OpcodeExecutorBase:
             self.push(SUPPORT_COMPARE_OP["is not"](left, right))
 
     def MAKE_FUNCTION(self, instr):
-        breakpoint()
         fn_name = self.pop()
         codeobj = self.pop()
         global_dict = self._globals
@@ -762,6 +763,13 @@ class OpcodeExecutorBase:
         related_list = [fn_name, codeobj]
 
         flag = instr.arg
+        if flag & MF.MF_HAS_CLOSURE:
+            # closure should be a tuple of Variables
+            closure_variable = self.pop()
+            assert isinstance(closure_variable, TupleVariable)
+        else:
+            closure = ()
+
         if flag & MF.MF_HAS_ANNOTATION:
             # can not set annotation in python env, skip it
             related_list.append(self.pop())
@@ -786,25 +794,20 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
-        breakpoint()
         if flag & MF.MF_HAS_CLOSURE:
-            # closure should be a tuple of Variables
-            closure_variable = self.pop()
-            assert isinstance(closure_variable, TupleVariable)
             new_fn = ClosureFunctionVariable(
-                codeobj.value, global_dict, fn_name.value, default_args, closure_variable, DummyTracker(closure_variable.get_wrapped_items())
+                codeobj.value, global_dict, fn_name.value, default_args, closure_variable, self._graph, DummyTracker(closure_variable.get_wrapped_items())
             )
+            self.push(new_fn)
         else:
-            closure = ()
             new_fn = types.FunctionType(
                 codeobj.value, global_dict, fn_name.value, default_args, closure
             )
-
-        self.push(
-            UserDefinedFunctionVariable(
-                new_fn, self._graph, DummyTracker(related_list)
+            self.push(
+                UserDefinedFunctionVariable(
+                    new_fn, self._graph, DummyTracker(related_list)
+                )
             )
-        )
 
     def GET_ITER(self, instr):
         source_obj = self.pop()

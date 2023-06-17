@@ -111,10 +111,10 @@ class UserDefinedFunctionVariable(FunctionVariable):
         }
 
 
-class ClosureFunctionVariable(VariableBase):
-    def __init__(self, code: types.CodeType, globals: dict[str, Any],  name: str | None = ..., argdefs: tuple[object, ...] | None = ...,
-                 closure: TupleVariable | None = ... ,tracker = Tracker):
-        super().__init__(tracker)
+class ClosureFunctionVariable(CallableVariable):
+    def __init__(self, code: types.CodeType, globals,  name, argdefs,
+                 closure: TupleVariable, graph: FunctionGraph, tracker: Tracker):
+        super().__init__(graph, tracker)
         self.code = code
         self.globals = globals
         self.name = name
@@ -122,17 +122,17 @@ class ClosureFunctionVariable(VariableBase):
         self.closure = closure
 
     def call_function(self, *args, **kwargs) -> VariableBase:
-        from ..opcode_inline_executor import OpcodeInlineExecutor
+        from ..opcode_inline_executor import OpcodeClosureInlineExecutor
         checkpoint = self.graph.save_memo()
         try:
-            inline_executor = OpcodeInlineExecutor(self, self.closure, *args, **kwargs)
+            inline_executor = OpcodeClosureInlineExecutor(self, *args, **kwargs)
+            # inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
             output = inline_executor.inline_call()
         except FallbackErrorBase as e:
             self.graph.restore_memo(checkpoint)
             raise BreakGraphError(
                 f"{self.value} is raise a inline call error. {e}"
             )
-        
         return output
 
 

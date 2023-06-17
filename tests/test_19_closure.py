@@ -6,14 +6,14 @@ import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
-    z = 1
-    def local():
-        return x + y + z
-    return local
+    z = 3
+    def local(a, b = 5):
+        return a + x + y + z
+    return local(4)
 
 
 class TestExecutor(TestCaseBase):
-    def test_simple(self):
+    def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
 
 
