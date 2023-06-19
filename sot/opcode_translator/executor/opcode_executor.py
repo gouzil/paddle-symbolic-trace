@@ -245,15 +245,15 @@ def fallback_when_occur_error(fn):
 
 
 class OpcodeExecutorBase:
-    def __init__(self, code: types.CodeType, graph: FunctionGraph):
+    def __init__(self, code: types.CodeType, graph: FunctionGraph, locals: dict = {}):
         # fake env for run, new env should be gened by PyCodeGen
         self._stack: list[VariableBase] = []
         self._co_consts = []
-        self._locals = {}
+        self._locals = locals
         self._globals = {}
         self._builtins = {}
         self._closure = {}
-        # self._f_localsplus = []
+        self._closure_cell = {}
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
@@ -425,7 +425,7 @@ class OpcodeExecutorBase:
         # breakpoint()
 
     def LOAD_CLOSURE(self, instr):
-        # breakpoint()
+        breakpoint()
         self.push(ClosureVariable(instr.argval))
         # self.push(TupleVariable(instr.argval, graph=self._graph, tracker=DummyTracker(instr.argval)))
         # self.push(TupleVariable(self._code.co_cellvars[instr.arg], graph=self._graph, tracker=DummyTracker(instr.argval)))
@@ -448,6 +448,12 @@ class OpcodeExecutorBase:
             # self._f_localsplus.append(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
             # self._closure[instr.arg] = self._code.co_freevars[instr.arg - len(self._code.co_cellvars)]
 
+        # pass
+
+    def LOAD_DEREF(self, instr):
+        breakpoint()
+        # self.push(self._closure[instr.argval])
+        self.push(self._locals[instr.argval])
         # pass
 
     def LOAD_FAST(self, instr):
@@ -496,8 +502,9 @@ class OpcodeExecutorBase:
     def STORE_DEREF(self, instr):
         # print(instr.arg)
         # print(instr.argval)
-        self._closure[instr.argval] = self.pop()
-        # breakpoint()
+        # self._closure[instr.argval] = self.pop()
+        self._locals[instr.argval] = self.pop()
+        breakpoint()
         # pass
 
     def BUILD_LIST(self, instr):
@@ -794,9 +801,10 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
+        breakpoint()
         if flag & MF.MF_HAS_CLOSURE:
             new_fn = ClosureFunctionVariable(
-                codeobj.value, global_dict, fn_name.value, default_args, closure_variable, self._graph, DummyTracker(closure_variable.get_wrapped_items())
+                codeobj.value, global_dict, fn_name.value, default_args, closure_variable, self._locals, self._graph, DummyTracker(closure_variable.get_wrapped_items())
             )
             self.push(new_fn)
         else:

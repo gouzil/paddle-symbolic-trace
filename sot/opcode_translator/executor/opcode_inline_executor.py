@@ -131,7 +131,7 @@ class OpcodeClosureInlineExecutor(OpcodeExecutorBase):
     def __init__(self, fn_variable, *args, **kwargs):
         self._fn_var = fn_variable
         self.return_value = None
-        super().__init__(fn_variable.code, fn_variable.graph)
+        super().__init__(fn_variable.code, fn_variable.graph, fn_variable.locals)
         self._name = "Inline"
         self._prepare_locals(*args, **kwargs)
 

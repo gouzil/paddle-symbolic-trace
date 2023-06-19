@@ -113,13 +113,14 @@ class UserDefinedFunctionVariable(FunctionVariable):
 
 class ClosureFunctionVariable(CallableVariable):
     def __init__(self, code: types.CodeType, globals,  name, argdefs,
-                 closure: TupleVariable, graph: FunctionGraph, tracker: Tracker):
+                 closure: TupleVariable, locals: dict ,graph: FunctionGraph, tracker: Tracker):
         super().__init__(graph, tracker)
         self.code = code
         self.globals = globals
         self.name = name
         self.argdefs = argdefs
         self.closure = closure
+        self.locals = locals
 
     def call_function(self, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeClosureInlineExecutor

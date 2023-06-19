@@ -8,7 +8,7 @@ import paddle
 def foo(x: int, y: paddle.Tensor):
     z = 3
     def local(a, b = 5):
-        return a + x + y + z
+        return a + x + y + z + b
     return local(4)
 
 
