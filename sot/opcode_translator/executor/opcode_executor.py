@@ -806,7 +806,6 @@ class OpcodeExecutorBase:
             new_fn = ClosureFunctionVariable(
                 codeobj.value,
                 global_dict,
-                fn_name.value,
                 default_args,
                 closure_variable,
                 self._locals,

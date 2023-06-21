@@ -117,7 +117,6 @@ class ClosureFunctionVariable(CallableVariable):
         self,
         code: types.CodeType,
         globals,
-        name,
         argdefs,
         closure: TupleVariable,
         locals: dict,
@@ -127,7 +126,6 @@ class ClosureFunctionVariable(CallableVariable):
         super().__init__(graph, tracker)
         self.code = code
         self.globals = globals
-        self.name = name
         self.argdefs = argdefs
         self.closure = closure
         self.locals = locals
