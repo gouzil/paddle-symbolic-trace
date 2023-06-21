@@ -39,11 +39,11 @@ from .tracker import (
 )
 from .variables import (  # ClosureVariable,
     CallableVariable,
+    ClosureFunctionVariable,
+    ClosureVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
-    ClosureVariable,
-    ClosureFunctionVariable,
     DictVariable,
     DummyVariable,
     IterVariable,
@@ -245,11 +245,11 @@ def fallback_when_occur_error(fn):
 
 
 class OpcodeExecutorBase:
-    def __init__(self, code: types.CodeType, graph: FunctionGraph, locals: dict = {}):
+    def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
         self._stack: list[VariableBase] = []
         self._co_consts = []
-        self._locals = locals
+        self._locals = {}
         self._globals = {}
         self._builtins = {}
         self._closure = {}
@@ -440,13 +440,13 @@ class OpcodeExecutorBase:
         # print(freevars)
         # self.push()
         # if instr.arg < len(self._code.co_cellvars):
-            # self.push(self._code.co_cellvars[instr.arg])
-            # self._f_localsplus.append(self._code.co_cellvars[instr.arg])
-            # self._closure[instr.arg] = self._code.co_cellvars[instr.arg]
+        # self.push(self._code.co_cellvars[instr.arg])
+        # self._f_localsplus.append(self._code.co_cellvars[instr.arg])
+        # self._closure[instr.arg] = self._code.co_cellvars[instr.arg]
         # else:
-            # self.push(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
-            # self._f_localsplus.append(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
-            # self._closure[instr.arg] = self._code.co_freevars[instr.arg - len(self._code.co_cellvars)]
+        # self.push(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
+        # self._f_localsplus.append(self._code.co_freevars[instr.arg - len(self._code.co_cellvars)])
+        # self._closure[instr.arg] = self._code.co_freevars[instr.arg - len(self._code.co_cellvars)]
 
         # pass
 
@@ -668,7 +668,7 @@ class OpcodeExecutorBase:
         )
 
     def CALL_FUNCTION(self, instr):
-        # breakpoint() 
+        # breakpoint()
         n_args = instr.arg
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
@@ -804,7 +804,14 @@ class OpcodeExecutorBase:
         breakpoint()
         if flag & MF.MF_HAS_CLOSURE:
             new_fn = ClosureFunctionVariable(
-                codeobj.value, global_dict, fn_name.value, default_args, closure_variable, self._locals, self._graph, DummyTracker(closure_variable.get_wrapped_items())
+                codeobj.value,
+                global_dict,
+                fn_name.value,
+                default_args,
+                closure_variable,
+                self._locals,
+                self._graph,
+                DummyTracker(closure_variable.get_wrapped_items()),
             )
             self.push(new_fn)
         else:
@@ -1376,7 +1383,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             return Stop()
 
     # def LOAD_CLOSURE(self, instr):
-        # self._frame.
+    # self._frame.
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr):
