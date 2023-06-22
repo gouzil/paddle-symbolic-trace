@@ -119,6 +119,7 @@ class ClosureFunctionVariable(CallableVariable):
         globals,
         argdefs,
         closure: TupleVariable,
+        closure_cell: dict,
         locals: dict,
         graph: FunctionGraph,
         tracker: Tracker,
@@ -128,6 +129,7 @@ class ClosureFunctionVariable(CallableVariable):
         self.globals = globals
         self.argdefs = argdefs
         self.closure = closure
+        self.closure_cell = closure_cell
         self.locals = locals
 
     def call_function(self, *args, **kwargs) -> VariableBase:

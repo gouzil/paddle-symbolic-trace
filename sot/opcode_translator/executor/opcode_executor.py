@@ -252,7 +252,7 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
-        self._closure = {}
+        # self._closure = {}
         self._closure_cell = {}
         self._lasti = 0  # idx of instruction list
         self._code = code
@@ -453,8 +453,10 @@ class OpcodeExecutorBase:
     def LOAD_DEREF(self, instr):
         breakpoint()
         # self.push(self._closure[instr.argval])
-        self.push(self._locals[instr.argval])
-        # pass
+        if self._closure_cell.get(instr.argval):
+            self.push(self._closure_cell[instr.argval])
+        else:
+            self.push(self._locals[instr.argval])
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -503,7 +505,7 @@ class OpcodeExecutorBase:
         # print(instr.arg)
         # print(instr.argval)
         # self._closure[instr.argval] = self.pop()
-        self._locals[instr.argval] = self.pop()
+        self._closure_cell[instr.argval] = self.pop()
         breakpoint()
         # pass
 
@@ -808,6 +810,7 @@ class OpcodeExecutorBase:
                 global_dict,
                 default_args,
                 closure_variable,
+                self._closure_cell,
                 self._locals,
                 self._graph,
                 DummyTracker(closure_variable.get_wrapped_items()),

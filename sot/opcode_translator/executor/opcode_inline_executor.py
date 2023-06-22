@@ -47,6 +47,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         if self._fn_var.closure:
             super().__init__(fn_variable.code, fn_variable.graph)
             self._locals = fn_variable.locals
+            self._closure_cell = fn_variable.closure_cell
         else:
             self._fn_value = fn_variable.value
             super().__init__(fn_variable.get_code(), fn_variable.graph)
