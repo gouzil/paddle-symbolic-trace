@@ -43,7 +43,7 @@ jobs:
       - name: init system
         run: |
           apt-get update
-          apt-get install wget curl git make cmake bzip2 neofetch libffi-dev sqlite-devel -y
+          apt-get install wget curl git make cmake bzip2 neofetch libffi-dev sqlite-dev -y
 
       - name: Build Python
         if: ${{ matrix.download-version }}
