@@ -103,4 +103,3 @@ jobs:
         with:
           name: ${{ matrix.python-version-with-wheel[1] }}
           path: Paddle/build/python/dist/${{ matrix.python-version-with-wheel[1] }}
-          retention-days: 90
