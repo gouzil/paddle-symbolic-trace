@@ -5,7 +5,9 @@ env:
 
 on:
   schedule:
-    - cron: '5 * * * *'
+    - cron: '10 * * * *'
+  push:
+    branches: [paddle_nightly_build_Release]
 
 jobs:
   Build:
