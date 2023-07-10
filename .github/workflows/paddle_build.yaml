@@ -1,7 +1,6 @@
 name: Paddle Nightly build
 
 env:
-  TZ: Asia/Shanghai
   GITHUB_WORKSPACE: /home/runner/work/
 
 on:
